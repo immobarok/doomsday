@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Movie {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @unique @db.VarChar(255)
+  releaseYear Int      @map("release_year")
+  runtime     Int
+  watched     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  prerequisites MoviePrerequisite[] @relation("MovieToPrerequisites")
+  dependents MoviePrerequisite[] @relation("PrerequisiteToMovies")
+  @@map("movies")
+}
+
+model MoviePrerequisite {
+  movieId        String   @map("movie_id") @db.Uuid
+  prerequisiteId String   @map("prerequisite_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  movie        Movie @relation("MovieToPrerequisites", fields: [movieId], references: [id], onDelete: Cascade)
+  prerequisite Movie @relation("PrerequisiteToMovies", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+  @@id([movieId, prerequisiteId])
+  @@index([prerequisiteId])
+  @@map("movie_prerequisites")
+}
+
+model Cinema {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(255)
+  bundleSizes Int[]    @map("bundle_sizes")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  @@map("cinemas")
+}
