@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { getErrorMessage, moviesApi } from '../../api/client';
 import type { Movie, RewatchPlan } from '../../types';
-import { Alert } from '../common/Alert';
 import { Loader } from '../common/Loader';
 import { RewatchOrderList } from './RewatchOrderList';
 import { RewatchSummaryCard } from './RewatchSummaryCard';
@@ -13,7 +13,6 @@ export function RewatchPlanSection() {
   const [plan, setPlan] = useState<RewatchPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const loadMovies = useCallback(async () => {
     const data = await moviesApi.getAll();
@@ -25,7 +24,7 @@ export function RewatchPlanSection() {
       .getAll()
       .then((data) => setMovies(data))
       .catch((err) => {
-        setError(getErrorMessage(err));
+        toast.error(getErrorMessage(err));
         setLoading(false);
       });
   }, []);
@@ -47,11 +46,10 @@ export function RewatchPlanSection() {
         const data = await moviesApi.getRewatchOrder(targetId);
         if (!cancelled) {
           setPlan(data);
-          setError(null);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(getErrorMessage(err));
+          toast.error(getErrorMessage(err));
         }
       } finally {
         if (!cancelled) {
@@ -69,12 +67,10 @@ export function RewatchPlanSection() {
   function handleSelectTarget(nextId: string) {
     setSelectedId(nextId);
     setLoading(true);
-    setError(null);
   }
 
   async function handleToggleWatched(movie: Movie) {
     setTogglingId(movie.id);
-    setError(null);
     try {
       await moviesApi.update(movie.id, { watched: !movie.watched });
       const [updatedPlan] = await Promise.all([
@@ -82,8 +78,13 @@ export function RewatchPlanSection() {
         loadMovies(),
       ]);
       setPlan(updatedPlan);
+      toast.success(
+        !movie.watched
+          ? `Marked "${movie.title}" as watched.`
+          : `Marked "${movie.title}" as unwatched.`,
+      );
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     } finally {
       setTogglingId(null);
     }
@@ -96,10 +97,6 @@ export function RewatchPlanSection() {
         targetId={targetId}
         onSelect={handleSelectTarget}
       />
-
-      {error && (
-        <Alert type="error" message={error} onDismiss={() => setError(null)} />
-      )}
 
       {loading && !plan ? (
         <Loader />

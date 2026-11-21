@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { cinemasApi, getErrorMessage } from '../../api/client';
 import type { BookingQuote, Cinema } from '../../types';
-import { Alert } from '../common/Alert';
 import { Loader } from '../common/Loader';
 import { AddCinemaForm } from './AddCinemaForm';
 import { BookingQuoteForm } from './BookingQuoteForm';
@@ -14,8 +14,6 @@ export function BookingSection() {
   const [groupSize, setGroupSize] = useState<number>(11);
   const [quote, setQuote] = useState<BookingQuote | null>(null);
   const [calculating, setCalculating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const loadCinemas = useCallback(async () => {
     const data = await cinemasApi.getAll();
@@ -26,7 +24,7 @@ export function BookingSection() {
     cinemasApi
       .getAll()
       .then((data) => setCinemas(data))
-      .catch((err) => setError(getErrorMessage(err)))
+      .catch((err) => toast.error(getErrorMessage(err)))
       .finally(() => setLoadingCinemas(false));
   }, []);
 
@@ -44,11 +42,10 @@ export function BookingSection() {
         );
         if (!cancelled) {
           setQuote(data);
-          setError(null);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(getErrorMessage(err));
+          toast.error(getErrorMessage(err));
         }
       }
     }
@@ -64,7 +61,6 @@ export function BookingSection() {
     if (!selectedCinemaId) return;
 
     setCalculating(true);
-    setError(null);
     try {
       const data = await cinemasApi.getBookingQuote(
         selectedCinemaId,
@@ -72,7 +68,7 @@ export function BookingSection() {
       );
       setQuote(data);
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
       setQuote(null);
     } finally {
       setCalculating(false);
@@ -80,8 +76,7 @@ export function BookingSection() {
   }
 
   async function handleCinemaCreated(cinema: Cinema) {
-    setError(null);
-    setSuccess(`Added cinema "${cinema.name}".`);
+    toast.success(`Added cinema "${cinema.name}".`);
     await loadCinemas();
     setChosenCinemaId(cinema.id);
   }
@@ -92,17 +87,6 @@ export function BookingSection() {
 
   return (
     <div className="space-y-8">
-      {error && (
-        <Alert type="error" message={error} onDismiss={() => setError(null)} />
-      )}
-      {success && (
-        <Alert
-          type="success"
-          message={success}
-          onDismiss={() => setSuccess(null)}
-        />
-      )}
-
       <BookingQuoteForm
         cinemas={cinemas}
         selectedCinemaId={selectedCinemaId}
@@ -117,10 +101,7 @@ export function BookingSection() {
 
       <AddCinemaForm
         onCreated={handleCinemaCreated}
-        onError={(msg) => {
-          setSuccess(null);
-          setError(msg);
-        }}
+        onError={(msg) => toast.error(msg)}
       />
     </div>
   );

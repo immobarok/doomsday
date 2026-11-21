@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { getErrorMessage, moviesApi } from '../../api/client';
 import type { Movie } from '../../types';
-import { Alert } from '../common/Alert';
 import { Loader } from '../common/Loader';
 import { AddMovieForm } from './AddMovieForm';
 import { MovieCard } from './MovieCard';
@@ -12,8 +12,6 @@ export function MoviesSection() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<MovieFilter>('all');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const loadMovies = useCallback(async () => {
     const data = await moviesApi.getAll();
@@ -24,25 +22,27 @@ export function MoviesSection() {
     moviesApi
       .getAll()
       .then((data) => setMovies(data))
-      .catch((err) => setError(getErrorMessage(err)))
+      .catch((err) => toast.error(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, []);
 
   async function handleCreated(title: string) {
-    setError(null);
-    setSuccess(`Added "${title}" to the rewatch catalog.`);
+    toast.success(`Added "${title}" to the rewatch catalog.`);
     await loadMovies();
   }
 
   async function handleToggleWatched(movie: Movie) {
-    setError(null);
-    setSuccess(null);
     setSavingId(movie.id);
     try {
       await moviesApi.update(movie.id, { watched: !movie.watched });
       await loadMovies();
+      toast.success(
+        !movie.watched
+          ? `Marked "${movie.title}" as watched.`
+          : `Marked "${movie.title}" as unwatched.`,
+      );
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     } finally {
       setSavingId(null);
     }
@@ -52,16 +52,14 @@ export function MoviesSection() {
     movieId: string,
     prerequisiteIds: string[],
   ): Promise<boolean> {
-    setError(null);
-    setSuccess(null);
     setSavingId(movieId);
     try {
       await moviesApi.update(movieId, { prerequisiteIds });
-      setSuccess('Prerequisites updated successfully.');
+      toast.success('Prerequisites updated successfully.');
       await loadMovies();
       return true;
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
       return false;
     } finally {
       setSavingId(null);
@@ -82,24 +80,10 @@ export function MoviesSection() {
 
   return (
     <div className="space-y-8">
-      {error && (
-        <Alert type="error" message={error} onDismiss={() => setError(null)} />
-      )}
-      {success && (
-        <Alert
-          type="success"
-          message={success}
-          onDismiss={() => setSuccess(null)}
-        />
-      )}
-
       <AddMovieForm
         movies={movies}
         onCreated={handleCreated}
-        onError={(msg) => {
-          setSuccess(null);
-          setError(msg);
-        }}
+        onError={(msg) => toast.error(msg)}
       />
 
       <div className="space-y-4">
