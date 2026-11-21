@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: doomsday
+      POSTGRES_PASSWORD: doomsday
+      POSTGRES_DB: doomsday
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U doomsday']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://doomsday:doomsday@db:5432/doomsday
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
