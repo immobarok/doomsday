@@ -1,12 +1,11 @@
-import { type FormEvent, useState } from 'react';
-import { api, formatRuntime, getErrorMessage, type Movie } from '../api';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { formatRuntime, getErrorMessage, moviesApi } from '../api/client';
+import type { Movie } from '../types';
 
-interface Props {
-  movies: Movie[];
-  onRefresh: () => Promise<void>;
-}
+export function MoviesPage() {
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export function MoviesView({ movies, onRefresh }: Props) {
   // Add-movie form state
   const [title, setTitle] = useState('');
   const [releaseYear, setReleaseYear] = useState(2026);
@@ -15,7 +14,7 @@ export function MoviesView({ movies, onRefresh }: Props) {
   const [selectedPrereqs, setSelectedPrereqs] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
-  // Edit prerequisites state (for a specific movie row)
+  // Edit prerequisites state
   const [editingMovieId, setEditingMovieId] = useState<string | null>(null);
   const [editPrereqIds, setEditPrereqIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -26,6 +25,25 @@ export function MoviesView({ movies, onRefresh }: Props) {
   // Feedback alerts
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const loadMovies = useCallback(async () => {
+    try {
+      const data = await moviesApi.getAll();
+      setMovies(data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    moviesApi
+      .getAll()
+      .then((data) => setMovies(data))
+      .catch((err) => setError(getErrorMessage(err)))
+      .finally(() => setLoading(false));
+  }, []);
 
   const movieMap = new Map(movies.map((m) => [m.id, m]));
 
@@ -39,7 +57,7 @@ export function MoviesView({ movies, onRefresh }: Props) {
     setCreating(true);
 
     try {
-      await api.post('/movies', {
+      await moviesApi.create({
         title,
         releaseYear: Number(releaseYear),
         runtime: Number(runtime),
@@ -52,7 +70,7 @@ export function MoviesView({ movies, onRefresh }: Props) {
       setWatched(false);
       setSelectedPrereqs([]);
       setSuccess(`Added "${title.trim()}" to the rewatch catalog.`);
-      await onRefresh();
+      await loadMovies();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -66,8 +84,8 @@ export function MoviesView({ movies, onRefresh }: Props) {
     setSavingId(movie.id);
 
     try {
-      await api.patch(`/movies/${movie.id}`, { watched: !movie.watched });
-      await onRefresh();
+      await moviesApi.update(movie.id, { watched: !movie.watched });
+      await loadMovies();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -88,12 +106,12 @@ export function MoviesView({ movies, onRefresh }: Props) {
     setSavingId(movieId);
 
     try {
-      await api.patch(`/movies/${movieId}`, {
+      await moviesApi.update(movieId, {
         prerequisiteIds: editPrereqIds,
       });
       setEditingMovieId(null);
       setSuccess('Prerequisites updated successfully.');
-      await onRefresh();
+      await loadMovies();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -108,6 +126,14 @@ export function MoviesView({ movies, onRefresh }: Props) {
   });
 
   const watchedCount = movies.filter((m) => m.watched).length;
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-xs">
+        Loading MCU movies...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -147,7 +173,7 @@ export function MoviesView({ movies, onRefresh }: Props) {
       >
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
+            <h2 className="text-2xl tracking-wide text-slate-900">
               Add a New MCU Movie
             </h2>
             <p className="text-xs text-slate-500">
@@ -258,7 +284,7 @@ export function MoviesView({ movies, onRefresh }: Props) {
       <div className="space-y-4">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-2xl tracking-wide text-slate-900">
               Movie Catalog ({movies.length})
             </h2>
             <p className="text-xs text-slate-500">
@@ -326,7 +352,7 @@ export function MoviesView({ movies, onRefresh }: Props) {
                       />
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3
+                          <span
                             className={`text-base font-bold ${
                               movie.watched
                                 ? 'text-slate-500 line-through decoration-emerald-500'
@@ -334,7 +360,7 @@ export function MoviesView({ movies, onRefresh }: Props) {
                             }`}
                           >
                             {movie.title}
-                          </h3>
+                          </span>
                           <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                             {movie.releaseYear}
                           </span>

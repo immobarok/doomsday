@@ -1,15 +1,10 @@
-import { type FormEvent, useEffect, useState } from 'react';
-import { api, type BookingQuote, type Cinema, getErrorMessage } from '../api';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { cinemasApi, getErrorMessage } from '../api/client';
+import type { BookingQuote, Cinema } from '../types';
 
-interface Props {
-  cinemas: Cinema[];
-  onRefreshCinemas: () => Promise<void>;
-}
-
-export function BookingView({ cinemas, onRefreshCinemas }: Props) {
+export function BookingPage() {
+  const [cinemas, setCinemas] = useState<Cinema[]>([]);
   const [chosenCinemaId, setChosenCinemaId] = useState<string>('');
-  const selectedCinemaId = chosenCinemaId || cinemas[0]?.id || '';
-
   const [groupSize, setGroupSize] = useState<number>(11);
   const [quote, setQuote] = useState<BookingQuote | null>(null);
   const [loading, setLoading] = useState(false);
@@ -21,18 +16,36 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
   const [creating, setCreating] = useState(false);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
 
+  const loadCinemas = useCallback(async () => {
+    try {
+      const data = await cinemasApi.getAll();
+      setCinemas(data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }, []);
+
   useEffect(() => {
-    if (!selectedCinemaId) return;
+    cinemasApi
+      .getAll()
+      .then((data) => setCinemas(data))
+      .catch((err) => setError(getErrorMessage(err)));
+  }, []);
+
+  const selectedCinemaId = chosenCinemaId || cinemas[0]?.id || '';
+
+  useEffect(() => {
+    if (!selectedCinemaId || groupSize < 1 || groupSize > 10000) return;
     let cancelled = false;
 
-    async function fetchQuoteForCinema() {
+    async function fetchQuote() {
       try {
-        const res = await api.get<BookingQuote>(
-          `/cinemas/${selectedCinemaId}/booking`,
-          { params: { groupSize } },
+        const data = await cinemasApi.getBookingQuote(
+          selectedCinemaId,
+          groupSize,
         );
         if (!cancelled) {
-          setQuote(res.data);
+          setQuote(data);
           setError(null);
         }
       } catch (err) {
@@ -42,7 +55,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
       }
     }
 
-    void fetchQuoteForCinema();
+    void fetchQuote();
     return () => {
       cancelled = true;
     };
@@ -55,11 +68,11 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<BookingQuote>(
-        `/cinemas/${selectedCinemaId}/booking`,
-        { params: { groupSize: Number(groupSize) } },
+      const data = await cinemasApi.getBookingQuote(
+        selectedCinemaId,
+        Number(groupSize),
       );
-      setQuote(res.data);
+      setQuote(data);
     } catch (err) {
       setError(getErrorMessage(err));
       setQuote(null);
@@ -80,15 +93,15 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
 
     setCreating(true);
     try {
-      const res = await api.post<Cinema>('/cinemas', {
+      const created = await cinemasApi.create({
         name: newName,
         bundleSizes: parsedSizes,
       });
       setNewName('');
       setNewBundlesText('');
-      setCreateSuccess(`Added cinema "${res.data.name}".`);
-      await onRefreshCinemas();
-      setChosenCinemaId(res.data.id);
+      setCreateSuccess(`Added cinema "${created.name}".`);
+      await loadCinemas();
+      setChosenCinemaId(created.id);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -118,7 +131,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs"
       >
         <div className="mb-5 border-b border-slate-100 pb-4">
-          <h2 className="text-base font-bold text-slate-900">
+          <h2 className="text-2xl tracking-wide text-slate-900">
             Opening-Night Watch-Party Booking Quote
           </h2>
           <p className="text-xs text-slate-500">
@@ -135,7 +148,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
             <select
               value={selectedCinemaId}
               onChange={(e) => setChosenCinemaId(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
+              className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
             >
               {cinemas.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -154,9 +167,10 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
               required
               min={1}
               max={10000}
+              placeholder="e.g. 11"
               value={groupSize}
               onChange={(e) => setGroupSize(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
+              className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
             />
           </div>
 
@@ -164,7 +178,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
             <button
               type="submit"
               disabled={loading || !selectedCinemaId}
-              className="w-full rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-50"
+              className="h-11 w-full rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-50"
             >
               {loading ? 'Calculating...' : 'Calculate Bundles'}
             </button>
@@ -225,7 +239,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
                     Optimal Bundle Combination
                   </span>
-                  <h3 className="mt-0.5 text-xl font-bold text-slate-900">
+                  <h3 className="mt-0.5 text-2xl tracking-wide text-slate-900">
                     {quote.totalBundles}{' '}
                     {quote.totalBundles === 1 ? 'bundle' : 'bundles'}:{' '}
                     <span className="text-emerald-700">
@@ -266,7 +280,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
               <span className="text-xs font-bold uppercase tracking-wider text-amber-700">
                 No Exact Match
               </span>
-              <h3 className="mt-0.5 text-xl font-bold text-amber-900">
+              <h3 className="mt-0.5 text-2xl tracking-wide text-amber-900">
                 Not possible
               </h3>
               <p className="mt-1 text-sm text-amber-800">
@@ -285,7 +299,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs"
       >
         <div className="mb-4">
-          <h3 className="text-base font-bold text-slate-900">
+          <h3 className="text-2xl tracking-wide text-slate-900">
             Add a New Cinema
           </h3>
           <p className="text-xs text-slate-500">
@@ -304,7 +318,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
               placeholder="e.g. Wakanda Grand IMAX"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
+              className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
             />
           </div>
 
@@ -319,7 +333,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
               placeholder="e.g. 4, 6"
               value={newBundlesText}
               onChange={(e) => setNewBundlesText(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
+              className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none"
             />
           </div>
 
@@ -327,7 +341,7 @@ export function BookingView({ cinemas, onRefreshCinemas }: Props) {
             <button
               type="submit"
               disabled={creating}
-              className="w-full rounded-xl border border-slate-300 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-2xs transition hover:bg-slate-800 disabled:opacity-50"
+              className="h-11 w-full rounded-xl border border-slate-300 bg-slate-900 px-4 text-sm font-semibold text-white shadow-2xs transition hover:bg-slate-800 disabled:opacity-50"
             >
               {creating ? 'Adding...' : '+ Add Cinema'}
             </button>

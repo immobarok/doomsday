@@ -1,31 +1,41 @@
-import { useEffect, useState } from 'react';
-import {
-  api,
-  formatRuntime,
-  getErrorMessage,
-  type Movie,
-  type RewatchPlan,
-} from '../api';
+import { useCallback, useEffect, useState } from 'react';
+import { formatRuntime, getErrorMessage, moviesApi } from '../api/client';
+import type { Movie, RewatchPlan } from '../types';
 
-interface Props {
-  movies: Movie[];
-  onRefreshMovies: () => Promise<void>;
-}
+export function RewatchPlanPage() {
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [plan, setPlan] = useState<RewatchPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-export function RewatchPlanView({ movies, onRefreshMovies }: Props) {
+  const loadMovies = useCallback(async () => {
+    try {
+      const data = await moviesApi.getAll();
+      setMovies(data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    moviesApi
+      .getAll()
+      .then((data) => setMovies(data))
+      .catch((err) => {
+        setError(getErrorMessage(err));
+        setLoading(false);
+      });
+  }, []);
+
   const defaultTarget =
     movies.find((m) => m.title.includes('Doomsday'))?.id ??
     movies[movies.length - 1]?.id ??
     '';
 
-  const [selectedId, setSelectedId] = useState<string>('');
   const targetId = selectedId || defaultTarget;
-
-  const [plan, setPlan] = useState<RewatchPlan | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   const movieMap = new Map(movies.map((m) => [m.id, m]));
 
   useEffect(() => {
@@ -34,11 +44,9 @@ export function RewatchPlanView({ movies, onRefreshMovies }: Props) {
 
     async function fetchPlan() {
       try {
-        const res = await api.get<RewatchPlan>(
-          `/movies/${targetId}/rewatch-order`,
-        );
+        const data = await moviesApi.getRewatchOrder(targetId);
         if (!cancelled) {
-          setPlan(res.data);
+          setPlan(data);
           setError(null);
         }
       } catch (err) {
@@ -68,12 +76,12 @@ export function RewatchPlanView({ movies, onRefreshMovies }: Props) {
     setTogglingId(movie.id);
     setError(null);
     try {
-      await api.patch(`/movies/${movie.id}`, { watched: !movie.watched });
-      const [planRes] = await Promise.all([
-        api.get<RewatchPlan>(`/movies/${targetId}/rewatch-order`),
-        onRefreshMovies(),
+      await moviesApi.update(movie.id, { watched: !movie.watched });
+      const [updatedPlan] = await Promise.all([
+        moviesApi.getRewatchOrder(targetId),
+        loadMovies(),
       ]);
-      setPlan(planRes.data);
+      setPlan(updatedPlan);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -90,6 +98,16 @@ export function RewatchPlanView({ movies, onRefreshMovies }: Props) {
     <div className="space-y-6">
       {/* Target Movie Picker Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+        <div className="mb-4 border-b border-slate-100 pb-3">
+          <h2 className="text-2xl tracking-wide text-slate-900">
+            Rewatch Order Planner
+          </h2>
+          <p className="text-xs text-slate-500">
+            Pick a target movie to see every prerequisite movie in valid watch
+            order, your watched progress, and remaining watch time.
+          </p>
+        </div>
+
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div className="w-full sm:max-w-md">
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -228,10 +246,9 @@ export function RewatchPlanView({ movies, onRefreshMovies }: Props) {
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Ordered Watch List (every movie after its prerequisites,
-                  excluding {plan.target.title})
-                </h3>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Ordered Watch List (excluding {plan.target.title})
+                </span>
                 <span className="text-xs text-slate-500">
                   Tick movies as you watch them
                 </span>
