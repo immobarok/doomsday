@@ -1,0 +1,8 @@
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+node_modules
+frontend/node_modules
+.git
+coverage
