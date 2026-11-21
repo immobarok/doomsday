@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatRuntime, getErrorMessage, moviesApi } from '../api/client';
+import { Loader } from '../components/Loader';
 import type { Movie, RewatchPlan } from '../types';
 
 export function RewatchPlanPage() {
@@ -163,9 +164,7 @@ export function RewatchPlanPage() {
       )}
 
       {loading && !plan ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 shadow-xs">
-          Calculating prerequisite rewatch order...
-        </div>
+        <Loader />
       ) : plan ? (
         <>
           {/* Summary Stats & Progress Bar Card */}

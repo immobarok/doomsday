@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { formatRuntime, getErrorMessage, moviesApi } from '../api/client';
+import { Loader, Spinner } from '../components/Loader';
 import type { Movie } from '../types';
 
 export function MoviesPage() {
@@ -128,11 +129,7 @@ export function MoviesPage() {
   const watchedCount = movies.filter((m) => m.watched).length;
 
   if (loading) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-xs">
-        Loading MCU movies...
-      </div>
-    );
+    return <Loader />;
   }
 
   return (
@@ -273,9 +270,9 @@ export function MoviesPage() {
           <button
             type="submit"
             disabled={creating}
-            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-50"
+            className="flex min-w-34 items-center justify-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-50"
           >
-            {creating ? 'Adding Movie...' : '+ Add Movie'}
+            {creating ? <Spinner /> : '+ Add Movie'}
           </button>
         </div>
       </form>
@@ -461,9 +458,9 @@ export function MoviesPage() {
                           type="button"
                           disabled={isSaving}
                           onClick={() => handleSavePrereqs(movie.id)}
-                          className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-50"
+                          className="flex min-w-28 items-center justify-center rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-50"
                         >
-                          {isSaving ? 'Saving...' : 'Save Changes'}
+                          {isSaving ? <Spinner /> : 'Save Changes'}
                         </button>
                         <button
                           type="button"

@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { cinemasApi, getErrorMessage } from '../api/client';
+import { Spinner } from '../components/Loader';
 import type { BookingQuote, Cinema } from '../types';
 
 export function BookingPage() {
@@ -178,9 +179,9 @@ export function BookingPage() {
             <button
               type="submit"
               disabled={loading || !selectedCinemaId}
-              className="h-11 w-full rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-50"
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-50"
             >
-              {loading ? 'Calculating...' : 'Calculate Bundles'}
+              {loading ? <Spinner /> : 'Calculate Bundles'}
             </button>
           </div>
         </div>
@@ -341,9 +342,9 @@ export function BookingPage() {
             <button
               type="submit"
               disabled={creating}
-              className="h-11 w-full rounded-xl border border-slate-300 bg-slate-900 px-4 text-sm font-semibold text-white shadow-2xs transition hover:bg-slate-800 disabled:opacity-50"
+              className="flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-900 px-4 text-sm font-semibold text-white shadow-2xs transition hover:bg-slate-800 disabled:opacity-50"
             >
-              {creating ? 'Adding...' : '+ Add Cinema'}
+              {creating ? <Spinner /> : '+ Add Cinema'}
             </button>
           </div>
         </div>
