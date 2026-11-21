@@ -5,7 +5,11 @@ interface LoaderProps {
 
 export function Spinner({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
   const dimensions =
-    size === 'lg' ? 'h-8 w-8 border-3' : size === 'md' ? 'h-6 w-6 border-2' : 'h-4 w-4 border-2';
+    size === 'lg'
+      ? 'h-8 w-8 border-3'
+      : size === 'md'
+        ? 'h-6 w-6 border-2'
+        : 'h-4 w-4 border-2';
 
   return (
     <span
